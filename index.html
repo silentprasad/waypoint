@@ -1,0 +1,1300 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <meta name="theme-color" content="#173d35">
+    <title>Waypoint - Location Tracker</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Leaflet: interactive OpenStreetMap -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <style>
+        :root {
+            --primary: #173d35;
+            --primary-light: #e7f4ed;
+            --accent: #20a875;
+            --background: #f3f7f4;
+            --text: #18342d;
+            --muted: #84958e;
+            --border: #e8efea;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--background);
+            color: var(--text);
+            font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+            overflow: hidden;
+        }
+
+        .app {
+            height: 100dvh;
+            max-width: 700px;
+            margin: auto;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(20, 55, 40, .07);
+        }
+
+        /* HEADER */
+        .app-header {
+            flex-shrink: 0;
+            padding: 12px 17px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            font-size: 19px;
+            letter-spacing: -.6px;
+        }
+
+        .brand-icon {
+            width: 37px;
+            height: 37px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            background: var(--primary);
+            color: white;
+            font-size: 19px;
+        }
+
+        .gps-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--muted);
+            background: #f1f4f2;
+            padding: 7px 11px;
+            border-radius: 30px;
+        }
+
+        .gps-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #9aa9a2;
+        }
+
+        .gps-badge.active {
+            background: #e5f7ed;
+            color: #148452;
+        }
+
+        .gps-badge.active .gps-dot {
+            background: #19a56a;
+            box-shadow: 0 0 0 4px #19a56a20;
+        }
+
+        /* MAP */
+        .map-area {
+            position: relative;
+            flex: 1 1 auto;
+            min-height: 130px;
+            background: #e9efea;
+            overflow: hidden;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+
+        .map-top-label {
+            position: absolute;
+            z-index: 500;
+            top: 12px;
+            left: 12px;
+            background: rgba(255,255,255,.96);
+            padding: 8px 12px;
+            border-radius: 10px;
+            box-shadow: 0 3px 15px #00000012;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .map-controls {
+            position: absolute;
+            z-index: 500;
+            right: 12px;
+            top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .map-control {
+            width: 39px;
+            height: 39px;
+            background: white;
+            border: 0;
+            border-radius: 11px;
+            box-shadow: 0 3px 15px #00000015;
+            font-size: 17px;
+            color: var(--primary);
+        }
+
+        .map-bottom {
+            position: absolute;
+            z-index: 500;
+            bottom: 12px;
+            left: 12px;
+            right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        .map-bottom > * {
+            pointer-events: auto;
+        }
+
+        .accuracy-pill {
+            background: rgba(255,255,255,.96);
+            border-radius: 9px;
+            padding: 8px 11px;
+            font-size: 11px;
+            font-weight: 700;
+            box-shadow: 0 2px 10px #00000012;
+        }
+
+        .map-open {
+            background: var(--primary);
+            color: white;
+            border: 0;
+            border-radius: 9px;
+            padding: 9px 12px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        /* LOCATION PANEL */
+        .location-panel {
+            flex-shrink: 0;
+            padding: 14px 16px 9px;
+        }
+
+        .section-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .updated-time {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .coordinates {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 9px;
+        }
+
+        .coordinate-card {
+            background: #f5f8f6;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 11px;
+            min-width: 0;
+        }
+
+        .coordinate-label {
+            color: var(--muted);
+            font-size: 10px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .coordinate-value {
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: -.4px;
+            overflow-wrap: anywhere;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .coordinate-value.empty {
+            color: #aab7b0;
+            font-size: 13px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 7px;
+            margin-top: 9px;
+        }
+
+        .detail-item {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 5px;
+            text-align: center;
+            min-width: 0;
+        }
+
+        .detail-icon {
+            font-size: 14px;
+            margin-bottom: 3px;
+        }
+
+        .detail-value {
+            font-size: 12px;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .detail-label {
+            color: var(--muted);
+            font-size: 9px;
+            margin-top: 2px;
+        }
+
+        /* ACTIONS */
+        .actions {
+            flex-shrink: 0;
+            padding: 8px 16px 10px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 9px;
+        }
+
+        .action-btn {
+            border: 0;
+            border-radius: 12px;
+            padding: 10px 3px;
+            background: #f1f6f3;
+            color: var(--primary);
+            font-size: 11px;
+            font-weight: 750;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            transition: .2s;
+        }
+
+        .action-btn .action-icon {
+            font-size: 19px;
+        }
+
+        .action-btn.primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .action-btn:active {
+            transform: scale(.96);
+        }
+
+        .bottom-bar {
+            flex-shrink: 0;
+            padding: 9px 16px calc(10px + env(safe-area-inset-bottom));
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .bottom-info {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .bottom-info strong {
+            color: var(--primary);
+            font-size: 12px;
+        }
+
+        .saved-btn {
+            border: 0;
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 9px 13px;
+            border-radius: 9px;
+            font-size: 11px;
+            font-weight: 750;
+        }
+
+        .status-message {
+            font-size: 11px;
+            color: var(--muted);
+            text-align: center;
+            padding: 0 12px 5px;
+            flex-shrink: 0;
+        }
+
+        .leaflet-control-attribution {
+            font-size: 8px !important;
+        }
+
+        .leaflet-control-zoom a {
+            color: var(--primary) !important;
+        }
+
+        .custom-marker {
+            width: 19px;
+            height: 19px;
+            border: 4px solid white;
+            border-radius: 50%;
+            background: #168b62;
+            box-shadow: 0 0 0 7px #168b6233, 0 2px 8px #0005;
+        }
+
+        .modal-content {
+            border: 0;
+            border-radius: 18px;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-title {
+            font-weight: 800;
+            font-size: 16px;
+        }
+
+        .place-item {
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+
+        .place-name {
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .place-coords {
+            color: var(--muted);
+            font-size: 10px;
+            margin-top: 3px;
+        }
+
+        .place-actions button {
+            border: 0;
+            background: #edf5f0;
+            color: var(--primary);
+            border-radius: 7px;
+            padding: 6px 9px;
+            font-size: 10px;
+            font-weight: 700;
+            margin-left: 4px;
+        }
+
+        .form-control {
+            border-radius: 10px;
+            padding: 11px;
+            font-size: 13px;
+        }
+
+        .btn-primary-custom {
+            background: var(--primary);
+            color: white;
+            border: 0;
+            border-radius: 10px;
+            padding: 11px 15px;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        @media(max-height: 700px) {
+            .app-header { padding: 8px 14px; }
+            .brand-icon { width: 32px; height: 32px; }
+            .location-panel { padding-top: 9px; }
+            .coordinate-card { padding: 7px 9px; }
+            .details-grid { margin-top: 6px; }
+            .detail-item { padding: 5px 3px; }
+            .actions { padding-top: 5px; padding-bottom: 6px; }
+            .action-btn { padding: 7px 2px; }
+            .bottom-bar { padding-top: 6px; padding-bottom: 7px; }
+        }
+
+        @media(max-width: 360px) {
+            .coordinate-value { font-size: 13px; }
+            .details-grid { gap: 4px; }
+            .detail-value { font-size: 10px; }
+            .actions { gap: 5px; padding-left: 10px; padding-right: 10px; }
+        }
+    </style>
+</head>
+
+<body>
+<div class="app">
+
+    <!-- HEADER -->
+    <header class="app-header">
+        <div class="brand">
+            <div class="brand-icon">⌖</div>
+            <span>Waypoint</span>
+        </div>
+
+        <div class="gps-badge" id="gpsBadge">
+            <span class="gps-dot"></span>
+            <span id="gpsStatus">GPS OFF</span>
+        </div>
+    </header>
+
+    <!-- MAP -->
+    <section class="map-area">
+        <div id="map"></div>
+
+        <div class="map-top-label">
+            <span>📍</span> LIVE LOCATION
+        </div>
+
+        <div class="map-controls">
+            <button class="map-control" onclick="recenterMap()" title="Recenter">◎</button>
+            <button class="map-control" onclick="toggleFollow()" id="followBtn" title="Follow location">➤</button>
+        </div>
+
+        <div class="map-bottom">
+            <div class="accuracy-pill" id="mapAccuracy">Waiting for GPS...</div>
+            <button class="map-open" onclick="openGoogleMaps()">↗ Open Maps</button>
+        </div>
+    </section>
+
+    <!-- LOCATION DETAILS -->
+    <section class="location-panel">
+
+        <div class="section-heading">
+            <div class="section-title">Current position</div>
+            <div class="updated-time" id="updatedTime">Not updated yet</div>
+        </div>
+
+        <div class="coordinates">
+            <div class="coordinate-card">
+                <div class="coordinate-label">LATITUDE</div>
+                <div class="coordinate-value empty" id="latitude">Waiting...</div>
+            </div>
+
+            <div class="coordinate-card">
+                <div class="coordinate-label">LONGITUDE</div>
+                <div class="coordinate-value empty" id="longitude">Waiting...</div>
+            </div>
+        </div>
+
+        <div class="details-grid">
+            <div class="detail-item">
+                <div class="detail-icon">🎯</div>
+                <div class="detail-value" id="accuracy">--</div>
+                <div class="detail-label">Accuracy</div>
+            </div>
+
+            <div class="detail-item">
+                <div class="detail-icon">🏃</div>
+                <div class="detail-value" id="speed">--</div>
+                <div class="detail-label">Speed</div>
+            </div>
+
+            <div class="detail-item">
+                <div class="detail-icon">⛰️</div>
+                <div class="detail-value" id="altitude">--</div>
+                <div class="detail-label">Altitude</div>
+            </div>
+
+            <div class="detail-item">
+                <div class="detail-icon">🧭</div>
+                <div class="detail-value" id="heading">--</div>
+                <div class="detail-label">Direction</div>
+            </div>
+        </div>
+    </section>
+
+    <div class="status-message" id="statusMessage">
+        Allow location access to start tracking.
+    </div>
+
+    <!-- ACTIONS -->
+    <section class="actions">
+        <button class="action-btn primary" onclick="refreshLocation()">
+            <span class="action-icon">⌖</span>
+            <span>Locate</span>
+        </button>
+
+        <button class="action-btn" onclick="toggleTracking()" id="trackingBtn">
+            <span class="action-icon" id="trackingIcon">Ⅱ</span>
+            <span id="trackingText">Pause</span>
+        </button>
+
+        <button class="action-btn" onclick="shareLocation()">
+            <span class="action-icon">↗</span>
+            <span>Share</span>
+        </button>
+
+        <button class="action-btn" onclick="copyLocation()">
+            <span class="action-icon">▣</span>
+            <span>Copy</span>
+        </button>
+    </section>
+
+    <!-- BOTTOM -->
+    <footer class="bottom-bar">
+        <div class="bottom-info">
+            <span>📏</span>
+            <span>Travelled:</span>
+            <strong id="distanceTravelled">0 m</strong>
+        </div>
+
+        <button class="saved-btn" data-bs-toggle="modal" data-bs-target="#savedModal">
+            ★ Saved Places <span id="savedCount">0</span>
+        </button>
+    </footer>
+</div>
+
+<!-- SAVE PLACE MODAL -->
+<div class="modal fade" id="saveModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Save this place</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label small fw-bold">PLACE NAME</label>
+                <input type="text" class="form-control" id="placeName" placeholder="e.g. My Home, Hotel, Office">
+                <div class="small text-secondary mt-2" id="saveCoordinates"></div>
+            </div>
+            <div class="modal-footer border-0">
+                <button class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn-primary-custom" onclick="savePlace()">Save Place</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SAVED PLACES MODAL -->
+<div class="modal fade" id="savedModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">★ Saved Places</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="savedPlacesList"></div>
+                <button class="btn-primary-custom w-100 mt-2" onclick="openSaveModal()">
+                    + Save Current Location
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LIBRARIES -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    /* -----------------------------------------
+       CONFIGURATION
+    ----------------------------------------- */
+
+    const CONFIG = {
+        // Reject readings with accuracy worse than this value.
+        maxAccuracy: 100,
+
+        // Minimum movement before the marker is moved.
+        minMovementMeters: 5,
+
+        // Map pans only after meaningful movement.
+        mapMovementMeters: 30,
+
+        // Prevent very frequent marker animation.
+        mapUpdateInterval: 1500,
+
+        // Ignore implausible GPS jumps.
+        maxSpeedMetersPerSecond: 70
+    };
+
+    let currentPosition = null;
+    let watchId = null;
+    let tracking = false;
+    let followLocation = true;
+    let mapMarker = null;
+    let accuracyCircle = null;
+    let lastMapUpdate = 0;
+    let lastAcceptedPosition = null;
+    let totalDistance = 0;
+    let bestAccuracy = Infinity;
+
+    /* -----------------------------------------
+       MAP INITIALIZATION
+    ----------------------------------------- */
+
+    const map = L.map('map', {
+        zoomControl: false,
+        attributionControl: true,
+        preferCanvas: true
+    }).setView([20.5937, 78.9629], 5);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    const markerIcon = L.divIcon({
+        className: '',
+        html: '<div class="custom-marker"></div>',
+        iconSize: [19, 19],
+        iconAnchor: [9, 9]
+    });
+
+    /* -----------------------------------------
+       DISTANCE CALCULATION
+    ----------------------------------------- */
+
+    function distanceBetween(lat1, lon1, lat2, lon2) {
+        const R = 6371000;
+        const toRad = value => value * Math.PI / 180;
+
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+
+        const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) *
+            Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) ** 2;
+
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function formatDistance(meters) {
+        if (meters < 1000) return Math.round(meters) + ' m';
+        return (meters / 1000).toFixed(2) + ' km';
+    }
+
+    /* -----------------------------------------
+       GPS START / STOP
+    ----------------------------------------- */
+
+    function refreshLocation() {
+        if (!navigator.geolocation) {
+            setStatus('Geolocation is not supported by this browser.', false);
+            return;
+        }
+
+        if (!window.isSecureContext) {
+            setStatus('Location requires HTTPS or localhost.', false);
+            return;
+        }
+
+        if (tracking) {
+            setStatus('GPS is already tracking your location.', true);
+            return;
+        }
+
+        tracking = true;
+        updateTrackingButton();
+
+        setStatus('Acquiring your GPS location...', true);
+        setGPSBadge('SEARCHING', false);
+
+        navigator.geolocation.getCurrentPosition(
+            handlePosition,
+            handleLocationError,
+            {
+                enableHighAccuracy: true,
+                timeout: 20000,
+                maximumAge: 0
+            }
+        );
+
+        watchId = navigator.geolocation.watchPosition(
+            handlePosition,
+            handleLocationError,
+            {
+                enableHighAccuracy: true,
+                timeout: 25000,
+                maximumAge: 1000
+            }
+        );
+    }
+
+    function stopTracking() {
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+
+        tracking = false;
+        setGPSBadge('PAUSED', false);
+        setStatus('Location tracking is paused.', false);
+        updateTrackingButton();
+    }
+
+    function toggleTracking() {
+        if (tracking) {
+            stopTracking();
+        } else {
+            refreshLocation();
+        }
+    }
+
+    function updateTrackingButton() {
+        document.getElementById('trackingIcon').textContent = tracking ? 'Ⅱ' : '▶';
+        document.getElementById('trackingText').textContent = tracking ? 'Pause' : 'Resume';
+    }
+
+    /* -----------------------------------------
+       GPS POSITION HANDLER
+    ----------------------------------------- */
+
+    function handlePosition(position) {
+        const coords = position.coords;
+
+        const newPosition = {
+            lat: coords.latitude,
+            lng: coords.longitude,
+            accuracy: coords.accuracy,
+            speed: coords.speed,
+            altitude: coords.altitude,
+            heading: coords.heading,
+            timestamp: position.timestamp
+        };
+
+        if (!Number.isFinite(newPosition.lat) ||
+            !Number.isFinite(newPosition.lng) ||
+            !Number.isFinite(newPosition.accuracy)) {
+            return;
+        }
+
+        // Ignore poor GPS readings when a better fix is already available.
+        if (newPosition.accuracy > CONFIG.maxAccuracy && currentPosition) {
+            setStatus(
+                'GPS signal is weak. Waiting for a more accurate reading.',
+                false
+            );
+            return;
+        }
+
+        // Reject sudden unrealistic position jumps.
+        if (lastAcceptedPosition) {
+            const elapsed = Math.max(
+                (newPosition.timestamp - lastAcceptedPosition.timestamp) / 1000,
+                0.1
+            );
+
+            const distance = distanceBetween(
+                lastAcceptedPosition.lat,
+                lastAcceptedPosition.lng,
+                newPosition.lat,
+                newPosition.lng
+            );
+
+            const calculatedSpeed = distance / elapsed;
+
+            // Allow a margin based on GPS accuracy.
+            const allowedDistance =
+                CONFIG.maxSpeedMetersPerSecond * elapsed +
+                lastAcceptedPosition.accuracy +
+                newPosition.accuracy;
+
+            if (distance > allowedDistance) {
+                setStatus('Ignoring an unstable GPS reading...', false);
+                return;
+            }
+
+            // Count meaningful movement, not GPS noise.
+            const movementThreshold = Math.max(
+                CONFIG.minMovementMeters,
+                Math.min(
+                    (lastAcceptedPosition.accuracy + newPosition.accuracy) * 0.35,
+                    20
+                )
+            );
+
+            if (distance >= movementThreshold) {
+                totalDistance += distance;
+                document.getElementById('distanceTravelled').textContent =
+                    formatDistance(totalDistance);
+            }
+        }
+
+        lastAcceptedPosition = newPosition;
+        currentPosition = newPosition;
+
+        if (newPosition.accuracy < bestAccuracy) {
+            bestAccuracy = newPosition.accuracy;
+        }
+
+        updateDetails(newPosition);
+        updateMapSmoothly(newPosition);
+        updateGPSStatus(newPosition);
+    }
+
+    /* -----------------------------------------
+       UI UPDATES
+    ----------------------------------------- */
+
+    function updateDetails(p) {
+        setText('latitude', p.lat.toFixed(7));
+        setText('longitude', p.lng.toFixed(7));
+
+        setText('accuracy', Math.round(p.accuracy) + ' m');
+
+        setText(
+            'speed',
+            p.speed !== null && Number.isFinite(p.speed)
+                ? (p.speed * 3.6).toFixed(1) + ' km/h'
+                : '--'
+        );
+
+        setText(
+            'altitude',
+            p.altitude !== null && Number.isFinite(p.altitude)
+                ? Math.round(p.altitude) + ' m'
+                : '--'
+        );
+
+        setText(
+            'heading',
+            p.heading !== null && Number.isFinite(p.heading)
+                ? Math.round(p.heading) + '°'
+                : '--'
+        );
+
+        document.getElementById('latitude').classList.remove('empty');
+        document.getElementById('longitude').classList.remove('empty');
+
+        document.getElementById('updatedTime').textContent =
+            'Updated ' + new Date(p.timestamp).toLocaleTimeString();
+
+        document.getElementById('mapAccuracy').textContent =
+            '🎯 Accuracy ±' + Math.round(p.accuracy) + ' m';
+    }
+
+    function setText(id, value) {
+        document.getElementById(id).textContent = value;
+    }
+
+    function updateGPSStatus(p) {
+        if (p.accuracy <= 20) {
+            setGPSBadge('GPS EXCELLENT', true);
+            setStatus('Your location is accurate.', true);
+        } else if (p.accuracy <= 50) {
+            setGPSBadge('GPS GOOD', true);
+            setStatus('GPS location acquired. Accuracy is good.', true);
+        } else {
+            setGPSBadge('GPS APPROX.', true);
+            setStatus('Location acquired. Accuracy may improve.', true);
+        }
+    }
+
+    function setGPSBadge(label, active) {
+        const badge = document.getElementById('gpsBadge');
+        document.getElementById('gpsStatus').textContent = label;
+        badge.classList.toggle('active', active);
+    }
+
+    function setStatus(message, active) {
+        document.getElementById('statusMessage').textContent = message;
+    }
+
+    /* -----------------------------------------
+       STABLE MAP UPDATE
+       IMPORTANT: NO TILE RELOADS
+    ----------------------------------------- */
+
+    function updateMapSmoothly(p) {
+        const now = Date.now();
+
+        // Create the marker only once.
+        if (!mapMarker) {
+            mapMarker = L.marker([p.lat, p.lng], {
+                icon: markerIcon
+            }).addTo(map);
+
+            accuracyCircle = L.circle([p.lat, p.lng], {
+                radius: p.accuracy,
+                color: '#168b62',
+                weight: 1,
+                fillColor: '#20a875',
+                fillOpacity: 0.09
+            }).addTo(map);
+
+            map.setView([p.lat, p.lng], 16, {
+                animate: false
+            });
+
+            lastMapUpdate = now;
+            return;
+        }
+
+        // Don't visually update the map for every GPS fluctuation.
+        if (now - lastMapUpdate < CONFIG.mapUpdateInterval) {
+            return;
+        }
+
+        const markerPosition = mapMarker.getLatLng();
+
+        const mapDistance = distanceBetween(
+            markerPosition.lat,
+            markerPosition.lng,
+            p.lat,
+            p.lng
+        );
+
+        // Ignore small GPS movements visually.
+        if (mapDistance < CONFIG.minMovementMeters) {
+            return;
+        }
+
+        mapMarker.setLatLng([p.lat, p.lng]);
+
+        // Update accuracy circle without recreating it.
+        accuracyCircle.setLatLng([p.lat, p.lng]);
+        accuracyCircle.setRadius(p.accuracy);
+
+        if (followLocation && mapDistance >= CONFIG.mapMovementMeters) {
+            map.panTo([p.lat, p.lng], {
+                animate: true,
+                duration: 0.6
+            });
+        }
+
+        lastMapUpdate = now;
+    }
+
+    function recenterMap() {
+        if (!currentPosition) {
+            refreshLocation();
+            return;
+        }
+
+        followLocation = true;
+        updateFollowButton();
+
+        map.flyTo(
+            [currentPosition.lat, currentPosition.lng],
+            Math.max(map.getZoom(), 16),
+            { duration: 0.8 }
+        );
+    }
+
+    function toggleFollow() {
+        followLocation = !followLocation;
+        updateFollowButton();
+
+        if (followLocation && currentPosition) {
+            map.panTo([currentPosition.lat, currentPosition.lng], {
+                animate: true
+            });
+        }
+    }
+
+    function updateFollowButton() {
+        const button = document.getElementById('followBtn');
+        button.style.background = followLocation ? '#173d35' : '#fff';
+        button.style.color = followLocation ? '#fff' : '#173d35';
+    }
+
+    /* -----------------------------------------
+       LOCATION ERRORS
+    ----------------------------------------- */
+
+    function handleLocationError(error) {
+        let message = 'Unable to retrieve your location.';
+
+        switch (error.code) {
+            case error.PERMISSION_DENIED:
+                message = 'Location permission denied. Enable location access in browser settings.';
+                stopTracking();
+                break;
+
+            case error.POSITION_UNAVAILABLE:
+                message = 'GPS signal unavailable. Check device location settings.';
+                break;
+
+            case error.TIMEOUT:
+                message = 'GPS request timed out. Waiting for another reading.';
+                break;
+        }
+
+        setStatus(message, false);
+
+        if (!currentPosition) {
+            setGPSBadge('GPS UNAVAILABLE', false);
+        }
+    }
+
+    /* -----------------------------------------
+       OPEN MAPS / COPY / SHARE
+    ----------------------------------------- */
+
+    function getLocationLink() {
+        if (!currentPosition) return null;
+
+        return `https://www.google.com/maps?q=${currentPosition.lat},${currentPosition.lng}`;
+    }
+
+    function openGoogleMaps() {
+        const link = getLocationLink();
+
+        if (!link) {
+            setStatus('Get your location first.', false);
+            return;
+        }
+
+        window.open(link, '_blank', 'noopener');
+    }
+
+    async function copyLocation() {
+        if (!currentPosition) {
+            setStatus('No location available to copy.', false);
+            return;
+        }
+
+        const p = currentPosition;
+
+        const content =
+            `My Location\n` +
+            `Latitude: ${p.lat}\n` +
+            `Longitude: ${p.lng}\n` +
+            `Accuracy: ±${Math.round(p.accuracy)} m\n` +
+            `Google Maps: ${getLocationLink()}`;
+
+        try {
+            await navigator.clipboard.writeText(content);
+            setStatus('Location details copied successfully.', true);
+        } catch {
+            fallbackCopy(content);
+        }
+    }
+
+    function fallbackCopy(content) {
+        const input = document.createElement('textarea');
+        input.value = content;
+        document.body.appendChild(input);
+        input.select();
+
+        try {
+            document.execCommand('copy');
+            setStatus('Location copied.', true);
+        } catch {
+            setStatus('Unable to copy location.', false);
+        }
+
+        input.remove();
+    }
+
+    async function shareLocation() {
+        if (!currentPosition) {
+            setStatus('Get your location first.', false);
+            return;
+        }
+
+        const p = currentPosition;
+
+        const data = {
+            title: 'My Current Location',
+            text:
+                `My current location:\n` +
+                `Latitude: ${p.lat}\n` +
+                `Longitude: ${p.lng}\n` +
+                `Accuracy: ±${Math.round(p.accuracy)} m`,
+            url: getLocationLink()
+        };
+
+        if (navigator.share) {
+            try {
+                await navigator.share(data);
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    setStatus('Unable to share location.', false);
+                }
+            }
+        } else {
+            fallbackCopy(data.text + '\n' + data.url);
+            setStatus('Sharing unavailable. Location copied instead.', true);
+        }
+    }
+
+    /* -----------------------------------------
+       SAVED PLACES
+    ----------------------------------------- */
+
+    function getSavedPlaces() {
+        try {
+            return JSON.parse(localStorage.getItem('waypoint_places') || '[]');
+        } catch {
+            return [];
+        }
+    }
+
+    function savePlacesToStorage(places) {
+        localStorage.setItem('waypoint_places', JSON.stringify(places));
+    }
+
+    function openSaveModal() {
+        if (!currentPosition) {
+            setStatus('Get your location before saving a place.', false);
+            return;
+        }
+
+        document.getElementById('placeName').value = '';
+
+        document.getElementById('saveCoordinates').textContent =
+            `${currentPosition.lat.toFixed(6)}, ${currentPosition.lng.toFixed(6)}`;
+
+        bootstrap.Modal.getOrCreateInstance(
+            document.getElementById('savedModal')
+        ).hide();
+
+        bootstrap.Modal.getOrCreateInstance(
+            document.getElementById('saveModal')
+        ).show();
+    }
+
+    function savePlace() {
+        const name = document.getElementById('placeName').value.trim();
+
+        if (!name) {
+            alert('Please enter a place name.');
+            return;
+        }
+
+        if (!currentPosition) return;
+
+        const places = getSavedPlaces();
+
+        places.push({
+            id: Date.now(),
+            name,
+            lat: currentPosition.lat,
+            lng: currentPosition.lng,
+            date: new Date().toISOString()
+        });
+
+        savePlacesToStorage(places);
+
+        bootstrap.Modal.getInstance(
+            document.getElementById('saveModal')
+        ).hide();
+
+        renderSavedPlaces();
+        setStatus('Place saved successfully.', true);
+    }
+
+    function renderSavedPlaces() {
+        const places = getSavedPlaces();
+
+        document.getElementById('savedCount').textContent = places.length;
+
+        const container = document.getElementById('savedPlacesList');
+
+        if (!places.length) {
+            container.innerHTML =
+                '<div class="text-center text-secondary py-4 small">' +
+                'No saved places yet.<br>Save your home, office or favourite places.' +
+                '</div>';
+            return;
+        }
+
+        container.innerHTML = places.map(place => `
+            <div class="place-item d-flex align-items-center justify-content-between gap-2">
+                <div class="min-w-0">
+                    <div class="place-name">${escapeHTML(place.name)}</div>
+                    <div class="place-coords">
+                        ${Number(place.lat).toFixed(5)}, ${Number(place.lng).toFixed(5)}
+                    </div>
+                </div>
+
+                <div class="place-actions d-flex flex-shrink-0">
+                    <button onclick="goToSavedPlace(${place.id})">Open</button>
+                    <button onclick="deleteSavedPlace(${place.id})">✕</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function escapeHTML(value) {
+        return String(value).replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[char]);
+    }
+
+    function goToSavedPlace(id) {
+        const place = getSavedPlaces().find(p => p.id === id);
+        if (!place) return;
+
+        followLocation = false;
+        updateFollowButton();
+
+        map.flyTo([place.lat, place.lng], 16, {
+            duration: 0.8
+        });
+
+        bootstrap.Modal.getInstance(
+            document.getElementById('savedModal')
+        ).hide();
+    }
+
+    function deleteSavedPlace(id) {
+        const places = getSavedPlaces().filter(p => p.id !== id);
+        savePlacesToStorage(places);
+        renderSavedPlaces();
+    }
+
+    /* -----------------------------------------
+       INITIALIZATION
+    ----------------------------------------- */
+
+    renderSavedPlaces();
+    updateTrackingButton();
+    updateFollowButton();
+
+    // Start acquiring the user's location automatically.
+    window.addEventListener('load', () => {
+        setTimeout(refreshLocation, 400);
+    });
+
+    // Recalculate map dimensions after the app loads.
+    setTimeout(() => map.invalidateSize(), 300);
+
+</script>
+</body>
+</html>
